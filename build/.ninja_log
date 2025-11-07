@@ -1,7 +1,0 @@
-# ninja log v5
-2	3690	1762328732023004003	CMakeFiles/test_app.dir/host/main.cpp.o	4623a93c5b7f84f3
-1	3237	1762328473255054602	CMakeFiles/logging.dir/shared/utility/logging/logger.cpp.o	21609d9ed6b14a6b
-1	3346	1762328473255054602	CMakeFiles/logging.dir/shared/utility/logging/logger_spdlog.cpp.o	a208de76f09938ba
-2	250	1762328646119020016	liblogging.a	6d232d51a1a20932
-3690	3959	1762328732291003873	test_app	a1efb0171f49f337
-0	2	0	clean	a31eedcededa8236
