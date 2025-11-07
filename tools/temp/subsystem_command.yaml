@@ -1,0 +1,29 @@
+version: 1
+modes: [normal, diagnostics, provisioning, recovery, low_power]
+subsystem: Sample
+commands:
+- id: cmd.sample.sample_command
+  name: SampleCommand
+  allowed_modes: [normal, low_power, diagnostics]
+  request:
+    type: SampleModel
+  emit:
+  - event.sample.accepted
+  - ev.sample.completed
+  description: sample command
+- id: cmd.sample.upload_log
+  name: UploadLog
+  allowed_modes: [diagnostics, recovery]
+  request:
+    type: LogBundle
+  emit:
+  - event.log.uploaded
+  - event.log.failed
+  description: Upload diagnostic logs to remote server
+- id: cmd.sample.get_status
+  name: GetStatus
+  allowed_modes: [normal, low_power, diagnostics, recovery]
+  request:
+    type: void
+  emit: []
+  description: Get current system status

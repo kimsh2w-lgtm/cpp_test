@@ -1,0 +1,99 @@
+# =====================================================================
+# System Manifest
+# =====================================================================
+
+
+
+# ---------------------------------------------------------------------
+# Global Settings
+# ---------------------------------------------------------------------
+platforms: [rk3588]
+modes: [normal, diagnostics, provisioning, recovery, low_power]
+restart_policys: [never, on_failure, always, delayed]
+
+system:
+  name: "Sample"
+  description: ""
+  mode: normal
+
+# ---------------------------------------------------------------------
+# Host Layer
+# ---------------------------------------------------------------------
+hosts:
+  gui_qt:
+    entry: hosts/gui_qt/dashboard
+  cli:
+    entry: hosts/cli
+  api_http:
+    entry: hosts/api_http
+
+
+# ---------------------------------------------------------------------
+# Subsystems Definition
+# ---------------------------------------------------------------------
+# name: subsystem name
+# priority: loading priority (higher = earlier)
+# config: subsystem config file path
+# auto_start: automatically load & start at system boot
+# allow_version: subsystem version compatibility
+# affinity: CPU core binding
+# optional: can fail without affecting system
+# depends_on: required subsystems before load
+# ---------------------------------------------------------------------
+
+subsystems:
+  - name: "multimedia-rs"
+    group: "media"
+    description: ""
+    priority: 50
+    config: configs/multimedia-rs.yaml
+    auto_start: true
+    allow_version: ">= 1.0.0"
+    affinity: [2,3]
+    restart_policy: on_failure
+    restart_delay_ms: 500
+    max_retries: 3
+    
+
+  - name: "network"
+    group: "infrastructure"
+    description: ""
+    priority: 80
+    config: configs/network.yaml
+    affinity: 0
+    restart_policy: on_failure
+
+  - name: "coordination"
+    group: "infrastructure"
+    description: ""
+    priority: 50
+    config: configs/coordination.yaml
+    depends_on: ["network"]
+    restart_policy: on_failure
+
+  - name: "ai_inference"
+    group: "infrastructure"
+    description: ""
+    priority: 40
+    config: configs/camera_product_override.yaml
+    optional: true
+    denied_modes: [low_power]
+    restart_policy: on_failure
+
+  - name: "education"
+    group: "services"
+    description: ""
+    priority: 30
+    config: configs/education.yaml
+    optional: true
+    denied_modes: [low_power]
+    restart_policy: on_failure
+
+  - name: "surgery"
+    group: "services"
+    description: ""
+    priority: 30
+    config: configs/education.yaml
+    optional: true
+    denied_modes: [low_power]
+    restart_policy: on_failure

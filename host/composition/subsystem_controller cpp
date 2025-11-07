@@ -1,0 +1,94 @@
+#include <map>
+#include <memory>
+#include <vector>
+#include <string>
+#include <fmt/core.h>
+
+#include "subsystem_manager.hpp"
+#include "system_manifest.hpp"
+
+namespace composition {
+    
+inline bool validSubsystem(SubsystemLoader::LoadedSubsystem* s) {
+    return s && s->descriptor && s->instance && s->descriptor->vtable;
+}
+
+template <typename Fn>
+static bool callSimple(SubsystemLoader::LoadedSubsystem* ss, Fn fn) {
+    if(!validSubsystem(ss)) return false;
+    return fn(ss->instance) == SUBSYS_OK;
+}
+
+bool SubsystemController::initialize() {
+    LOGD("[{}] initialize()", name_);
+    return callSimple(subsystem_.get(), subsystem_->descriptor->vtable->init);
+}
+
+bool SubsystemController::selfTest() {
+    LOGD("[{}] selfTest()", name_);
+    return callSimple(subsystem_.get(), subsystem_->descriptor->vtable->self_test);
+}
+
+bool SubsystemController::configure() {
+    LOGD("[{}] configure()", name_);
+    return callSimple(subsystem_.get(), subsystem_->descriptor->vtable->configure);
+}
+
+bool SubsystemController::ready() {
+    LOGD("[{}] ready()", name_);
+    return callSimple(subsystem_.get(), subsystem_->descriptor->vtable->ready);
+}
+
+bool SubsystemController::start() {
+    LOGD("[{}] start()", name_);
+    return callSimple(subsystem_.get(), subsystem_->descriptor->vtable->start);
+}
+
+bool SubsystemController::pause() {
+    LOGD("[{}] pause()", name_);
+    return callSimple(subsystem_.get(), subsystem_->descriptor->vtable->pause);
+}
+
+bool SubsystemController::stop() {
+    LOGD("[{}] stop()", name_);
+    return callSimple(subsystem_.get(), subsystem_->descriptor->vtable->stop);
+}
+
+bool SubsystemController::recovery() {
+    LOGD("[{}] recovery()", name_);
+    return callSimple(subsystem_.get(), subsystem_->descriptor->vtable->recovery);
+}
+
+bool SubsystemController::safe() {
+    LOGD("[{}] safe()", name_);
+    return callSimple(subsystem_.get(), subsystem_->descriptor->vtable->safe);
+}
+
+bool SubsystemController::systemMode(SystemModeType mode) {
+    LOGD("[{}] systemMode({})", name_, static_cast<unsigned>(mode));
+    return callSimple(subsystem_.get(), subsystem_->descriptor->vtable->system_mode);
+}
+
+bool SubsystemController::query(uint32_t code, void* in, void* out) {
+    LOGT("[{}] query(code={})", name_, code);
+    return subsystem_->descriptor->vtable->query(subsystem_->instance, code, in, out) == SUBSYS_OK;
+}
+
+bool SubsystemController::registry() {
+    LOGD("IoC Registry subsystem: {}", name_);
+    return callSimple(subsystem_.get(), subsystem_->descriptor->registry);
+}
+
+bool SubsystemController::registryModule() {
+    LOGD("Module IoC Registry subsystem: {}", name_);
+    return callSimple(subsystem_.get(), subsystem_->descriptor->registry_module);
+}
+
+void SubsystemController::unload() {
+    LOGI("[{}] unload()", name_);
+    if (subsystem_) {
+        SubsystemLoader::unload(subsystem_);
+    }
+}
+
+}  // namespace composition

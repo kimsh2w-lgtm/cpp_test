@@ -1,0 +1,22 @@
+log:
+  CORE:
+    level: info
+    sinks:
+      - type: console
+      - type: rotating_file
+        filename: "core.log"
+        max_size: 1048576   # 1MB
+        max_files: 3
+      - type: loki
+        url: "http://127.0.0.1:3100/loki/api/v1/push"
+        job: "myapp"
+  DB:
+    level: debug
+    sinks:
+      - type: file
+        filename: "db.log"
+      - type: syslog
+        ident: "myapp-db"
+      - type: udp_json
+        host: "127.0.0.1"
+        port: 9000

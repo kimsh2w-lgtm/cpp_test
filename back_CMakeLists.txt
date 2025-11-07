@@ -1,0 +1,49 @@
+cmake_minimum_required(VERSION 3.16)
+project(logging_demo LANGUAGES CXX)
+
+# ✅ Ninja 빌드 지정
+set(CMAKE_GENERATOR "Ninja" CACHE INTERNAL "" FORCE)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# yaml-cpp, spdlog은 시스템 패키지 또는 FetchContent로 설치 가능
+find_package(spdlog REQUIRED)
+find_package(yaml-cpp REQUIRED)
+
+# ---------- logging 라이브러리 ----------
+add_library(logging
+    logging/logging_spdlog.cpp
+)
+target_include_directories(logging PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/logging
+)
+target_link_libraries(logging PUBLIC spdlog::spdlog yaml-cpp)
+
+# ---------- system_control 라이브러리 ----------
+add_library(system_control
+    system_control/system_control.cpp
+)
+target_include_directories(system_control PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/system_control
+)
+target_link_libraries(system_control PUBLIC systemd)
+
+# ---------- config_loader 라이브러리 ----------
+add_library(config_loader
+    config_loader/LoggerConfig.cpp
+)
+target_include_directories(config_loader PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/config_loader
+)
+target_link_libraries(config_loader PUBLIC logging yaml-cpp)
+
+# ---------- 메인 실행 파일 ----------
+add_executable(main_app
+    main.cpp
+)
+target_link_libraries(main_app PRIVATE
+    logging
+    system_control
+    config_loader
+)

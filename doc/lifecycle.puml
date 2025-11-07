@@ -1,0 +1,75 @@
+@startuml
+title Main system Lifecycle
+
+state StartUp : Inital boot and check before entering any operatinal
+state StartUp {
+    state Init
+    state Diagnostics
+    state StartupFailure
+
+    [*] -down-> Init 
+    Init -down-> Diagnostics
+    Init -> StartupFailure
+
+    Diagnostics -down-> Configuring
+    Diagnostics -> StartupFailure
+
+    Configuring -down-> Active : Success
+    Configuring -> StartupFailure : Fail
+
+    StartupFailure -> Safe
+}
+
+state Active : normal running cycle of the system
+state Active {
+    state Ready
+    state Running
+    state Pause
+    
+    Ready -down-> Running
+
+    Running -up-> Ready
+    Running -left-> Pause
+
+    Pause -> Running
+}
+
+
+state Stop : stop of operations.
+state Stop {
+    Stopping -down-> Shutdown
+    Stopping -down-> Reboot
+    Shutdown -down-> [*]
+    Reboot -down-> [*]
+}
+
+state Safety : These states handle fault situations.
+state Safety {
+    state OperationalError
+    state Recovery
+    state Safe    
+    
+    OperationalError -down-> Recovery
+    Recovery -left-> Active : success
+    Recovery -> Safe : fail
+}
+
+
+state SystemMode : Functional “modes” the system can operate in
+state SystemMode {
+    state Production
+    state Calibration
+    state Update
+    state Maintenance
+
+    Production -down[hidden]-> Calibration
+    Update -down[hidden]-> Maintenance
+}
+
+Active -> Safety
+Active -down-> SystemMode
+SystemMode -> Stop
+Safe -down-> Stop
+Active -down-> Stop
+
+@enduml

@@ -1,0 +1,8 @@
+@startuml
+title Main system Lifecycle
+[*] -down-> Init
+Init: System boot & Subsystem loaded
+
+Init -down-> Diagnostics
+Diagnostics: System resources loaded
+@enduml

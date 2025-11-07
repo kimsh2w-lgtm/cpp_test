@@ -1,0 +1,17 @@
+[
+{
+  "directory": "/home/ksh/works/tmp/build",
+  "command": "/usr/bin/g++ -DFMT_LOCALE -DFMT_SHARED -DSPDLOG_COMPILED_LIB -DSPDLOG_FMT_EXTERNAL -DSPDLOG_SHARED_LIB -I/home/ksh/works/tmp/shared/utility/logging -g -O0 -std=gnu++17 -o CMakeFiles/logging.dir/shared/utility/logging/logger_spdlog.cpp.o -c /home/ksh/works/tmp/shared/utility/logging/logger_spdlog.cpp",
+  "file": "/home/ksh/works/tmp/shared/utility/logging/logger_spdlog.cpp"
+},
+{
+  "directory": "/home/ksh/works/tmp/build",
+  "command": "/usr/bin/g++ -DFMT_LOCALE -DFMT_SHARED -DSPDLOG_COMPILED_LIB -DSPDLOG_FMT_EXTERNAL -DSPDLOG_SHARED_LIB -I/home/ksh/works/tmp/shared/utility/logging -g -O0 -std=gnu++17 -o CMakeFiles/logging.dir/shared/utility/logging/logger.cpp.o -c /home/ksh/works/tmp/shared/utility/logging/logger.cpp",
+  "file": "/home/ksh/works/tmp/shared/utility/logging/logger.cpp"
+},
+{
+  "directory": "/home/ksh/works/tmp/build",
+  "command": "/usr/bin/g++ -DFMT_LOCALE -DFMT_SHARED -DSPDLOG_COMPILED_LIB -DSPDLOG_FMT_EXTERNAL -DSPDLOG_SHARED_LIB -I/home/ksh/works/tmp/shared/utility/logging -g -O0 -std=gnu++17 -o CMakeFiles/test_app.dir/host/main.cpp.o -c /home/ksh/works/tmp/host/main.cpp",
+  "file": "/home/ksh/works/tmp/host/main.cpp"
+}
+]

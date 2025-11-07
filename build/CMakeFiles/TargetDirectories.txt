@@ -1,0 +1,4 @@
+/home/ksh/works/tmp/build/CMakeFiles/logging.dir
+/home/ksh/works/tmp/build/CMakeFiles/test_app.dir
+/home/ksh/works/tmp/build/CMakeFiles/edit_cache.dir
+/home/ksh/works/tmp/build/CMakeFiles/rebuild_cache.dir

@@ -1,0 +1,269 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+#python insert_class_method_with_cpp.py \
+# --header sample_service.hpp \
+# --source sample_service.cpp \
+# --class SampleService \
+# --function-name SampleCommand \
+#  --return-type void \
+#  --params "SampleModel model" \
+#  --type command \
+#  --command SampleCommand \
+#  --allowed-modes normal low_power diagnostics \
+#  --emit event.sample.accepted "ev.sample.completed" \
+#  --description "sample command" \
+#  --qualifiers "" \
+#  --also-comment-in-cpp
+
+
+import argparse, os, re, shutil, sys
+
+def _normalize_list_arg(x):
+    if isinstance(x, str):
+        s = x.strip()
+        if s.startswith("[") and s.endswith("]"):
+            s = s[1:-1]
+        return [p.strip() for p in s.split(",") if p.strip()]
+    return list(x)
+
+def _fmt_list_no_space(seq):
+    return "[" + ",".join(seq) + "]"
+
+def make_command_annotation(t, allowed_modes, emit_list, desc):
+    allowed_list = _normalize_list_arg(allowed_modes)
+    emit_items   = _normalize_list_arg(emit_list)
+    return (
+        "/**\n"
+        f" * @type: {t}\n"
+        f" * @command: command\n"
+        f" * @allowed_modes: {_fmt_list_no_space(allowed_list)}\n"
+        f" * @emit: {_fmt_list_no_space(emit_items)}\n"
+        f" * @description: {desc}\n"
+        " */\n"
+    )
+
+def make_event_annotation(t, durability, causation, desc):
+    causation_list = causation
+    return (
+        "/**\n"
+        f" * @type: {t}\n"
+        f" * @command: event\n"
+        f" * @durability: {durability}\n"
+        f" * @causation: {_fmt_list_no_space(causation_list)}\n"
+        f" * @description: {desc}\n"
+        " */\n"
+    )
+
+def find_class_bounds(text, class_name):
+    m = re.search(rf'\bclass\s+{re.escape(class_name)}\b', text)
+    if not m: return None
+    i = m.end()
+    brace_open = text.find('{', i)
+    if brace_open == -1: return None
+    depth = 0
+    for j in range(brace_open, len(text)):
+        c = text[j]
+        if c == '{': depth += 1
+        elif c == '}':
+            depth -= 1
+            if depth == 0:
+                return (m.start(), brace_open, j)
+    return None
+
+def detect_access_slot(body, label):
+    pat = re.compile(rf'(?m)^\s*{label}\s*:\s*$')
+    m = pat.search(body)
+    if not m: return None
+    line_end = body.find('\n', m.end())
+    return (line_end + 1) if line_end != -1 else len(body)
+
+def method_exists_in_class(body, signature):
+    squash = lambda s: re.sub(r'\s+', '', s)
+    sig = squash(signature + ';')
+    fname = re.findall(r'\b([A-Za-z_]\w*)\s*\(', signature)
+    if not fname: return False
+    f = fname[-1]
+    candidates = re.findall(rf'[^;{{}}]*\b{re.escape(f)}\s*\([^;{{}}]*\)\s*[^;{{}}]*;', body)
+    return any(squash(c) == sig for c in candidates)
+
+def indent_block(block, indent):
+    return "".join((indent + ln) if ln.strip() else ln for ln in block.splitlines(True))
+
+def insert_into_header(header_path, cls, access, ensure_public, block, signature):
+    with open(header_path, 'r', encoding='utf-8') as f:
+        text = f.read()
+
+    bounds = find_class_bounds(text, cls)
+    if not bounds:
+        print(f"[ERROR] class '{cls}' not found in {header_path}", file=sys.stderr)
+        sys.exit(1)
+
+    class_start, brace_open, brace_close = bounds
+    head = text[:brace_open+1]
+    body = text[brace_open+1:brace_close]
+    tail = text[brace_close:]
+
+    pos = detect_access_slot(body, access)
+    indent = "    "
+
+    if pos is None:
+        if ensure_public and access == 'public':
+            first_line = body.splitlines(True)[:1]
+            base_indent = re.match(r'^\s*', first_line[0]).group(0) if first_line else ""
+            public_line = f"\n{base_indent}public:\n"
+            body = public_line + body
+            pos = len(public_line)
+            indent = base_indent + "    "
+        else:
+            pos = 0
+            indent = "    "
+    else:
+        rest = body[pos:]
+        for line in rest.splitlines():
+            if line.strip():
+                indent = re.match(r'^\s*', line).group(0)
+                if len(indent) < 4:
+                    indent = "    "
+                break
+
+    if method_exists_in_class(body, signature):
+        print("[INFO] Header already contains the same method declaration. Skipped header insert.")
+        return False
+
+    insertion = "\n" + indent_block(block, indent) + indent + signature + ";\n"
+    new_body = body[:pos] + insertion + body[pos:]
+
+    shutil.copyfile(header_path, header_path + ".bak")
+    with open(header_path, 'w', encoding='utf-8') as f:
+        f.write(head + new_body + tail)
+
+    print(f"[OK] Inserted declaration into header: {header_path}")
+    return True
+
+def definition_exists_in_cpp(src_text, full_qualified_name, params, qualifiers):
+    # Normalize spaces to detect duplicates robustly
+    squash = lambda s: re.sub(r'\s+', '', s)
+    # Build a simple pattern:  <anything> <fqname>(<params>) <qualifiers> {
+    # We just check that fqname( and ) and qualifiers appear before a '{'
+    p_no_ws = squash(f"{full_qualified_name}({params}){(' ' + qualifiers) if qualifiers else ''}")
+    # Collect candidate lines containing fqname(
+    if full_qualified_name not in src_text:
+        return False
+    # Rough scan: find blocks that start with fqname(
+    pat = re.compile(rf'\b{re.escape(full_qualified_name)}\s*\(')
+    for m in pat.finditer(src_text):
+        # extend to next '{' and check params/qualifiers roughly
+        tail = src_text[m.start(): m.start()+1000]
+        # cut at first '{' to examine signature part only
+        cut = tail.split('{', 1)[0]
+        if squash(cut).startswith(p_no_ws):
+            return True
+    return False
+
+def append_definition_to_cpp(source_path, include_header, return_type, fqname, params, qualifiers, also_comment, block_text):
+    created = False
+    if not os.path.exists(source_path):
+        created = True
+        with open(source_path, 'w', encoding='utf-8') as f:
+            f.write(f'#include "{include_header}"\n\n')
+
+    with open(source_path, 'r', encoding='utf-8') as f:
+        src = f.read()
+
+    if definition_exists_in_cpp(src, fqname, params, qualifiers):
+        print("[INFO] Source already contains the same method definition. Skipped cpp insert.")
+        return False, created
+
+    stub = ""
+    if also_comment and block_text:
+        # keep the same block above definition
+        stub += block_text
+    sig_line = f"{return_type} {fqname}({params})"
+    if qualifiers:
+        sig_line += f" {qualifiers}"
+    stub += sig_line + " {\n"
+    if return_type.strip() != "void":
+        stub += "    return {};\n"
+    stub += "}\n"
+
+    # Ensure two newlines before append if file doesn't already end with one
+    if not src.endswith('\n'):
+        src += '\n'
+    src += '\n' + stub + '\n'
+
+    with open(source_path, 'w', encoding='utf-8') as f:
+        f.write(src)
+
+    print(f"[OK] Added definition to source: {source_path}")
+    return True, created
+
+def main():
+    ap = argparse.ArgumentParser(description="Insert comment+declaration into class (.hpp) and generate definition in .cpp")
+    ap.add_argument("-d", "--dir", default=".", help="Header/Source directory (default: .)")
+    ap.add_argument("--header", required=True, help="Path to header (.h/.hpp)")
+    ap.add_argument("--source", required=True, help="Path to source (.cpp)")
+    ap.add_argument("--include", help='Header include name for the .cpp (default: basename of --header)')
+
+    ap.add_argument("--class", dest="cls", required=True, help="Target class name (e.g., SampleService)")
+    ap.add_argument("--access", choices=["public", "protected", "private"], default="public")
+    ap.add_argument("--ensure-public", action="store_true", help="Create a public: section if missing")
+
+    ap.add_argument("-f", "--function-name", required=True)
+    ap.add_argument("--return-type", default="void")
+    ap.add_argument("--params", default="")  # literal parameter list
+    ap.add_argument("--qualifiers", default="", help='Trailing qualifiers after params, e.g. "const noexcept"')
+
+    # For fully-qualified name: optionally allow namespace prefix
+    ap.add_argument("--ns", default="", help='Optional namespace prefix, e.g. "my::ns"')
+    ap.add_argument("--class-prefix", default="", help='Optional extra qualifier before class (rare)')
+
+    ap.add_argument("--type", choices=["command", "event"], default="command")
+    ap.add_argument("--description", default="")
+    # Meta tags(command) for comment
+    ap.add_argument("--allowed-modes", nargs="*", default=[])
+    ap.add_argument("--emit", nargs="*", default=[])
+    
+    # Meta tags for event
+    ap.add_argument("--durability", choices=["volatile", "persistent"], nargs="*", default="volatile")
+    ap.add_argument("--causation", nargs="*", default=[])
+
+    ap.add_argument("--also-comment-in-cpp", action="store_true", help="Copy the same block comment above the .cpp definition")
+
+    args = ap.parse_args()
+
+    if (args.type == "command"):
+        block = make_command_annotation(args.function_name, args.allowed_modes, args.emit, args.description)
+    elif (args.type == "event"):
+        block = make_event_annotation(args.function_name, args.allowed_modes, args.emit, args.description)
+
+    signature = f"{args.return_type} {args.function_name}({args.params})"
+    if args.qualifiers:
+        signature += f" {args.qualifiers}"
+
+    # 1) Header insert
+    header_changed = insert_into_header(
+        args.header, args.cls, args.access, args.ensure_public, block, signature
+    )
+
+    # 2) Source insert
+    include_name = args.include if args.include else os.path.basename(args.header)
+
+    qualifiers_ns = []
+    if args.ns.strip():
+        qualifiers_ns.append(args.ns.strip())
+    if args.class_prefix.strip():
+        qualifiers_ns.append(args.class_prefix.strip())
+    qualifiers_ns.append(args.cls)
+    fqclass = "::".join(qualifiers_ns)
+
+    fqname = f"{fqclass}::{args.function_name}"
+
+    appended, created = append_definition_to_cpp(
+        args.source, include_name,
+        args.return_type, fqname, args.params, args.qualifiers,
+        args.also_comment_in_cpp, block if args.also_comment_in_cpp else ""
+    )
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,27 @@
+@startuml Call chain
+skinparam componentStyle rectangle
+
+package "Client Layer" {
+  [Client]
+}
+
+package "Business Layer" {
+  [Client] ..> [Manager]
+  [Manager] -down-> [Engine A]
+  [Manager] -down-> [Engine B]
+}
+
+package "Resource Access Layer" {
+  [Engine B] -down-> [Resource Access]
+}
+
+package "Resource Layer" {
+    [Resource Access] -down-> [Storage] 
+}
+
+
+package "Utility" {
+  [Manager] .right.> [Message]
+}
+
+@enduml
