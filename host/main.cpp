@@ -1,4 +1,7 @@
 #include "logging.hpp"
+#include "task_unit.hpp"
+#include "thread_unit.hpp"
+#include "async_unit.hpp"
 
 using namespace logging;
 

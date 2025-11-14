@@ -13,9 +13,9 @@ namespace sample
 	{
 	public:
 		SampleService();
-
 		~SampleService();
-		
+
+        
         /**
          * @type: command
          * @command: SampleCommand
